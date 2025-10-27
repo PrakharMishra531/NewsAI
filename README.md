@@ -1,35 +1,41 @@
 # NewsAI
 
 ## Overview
-**NewsAI** is your real-time news assistant, seamlessly pulling the latest stories from the Times of India every 24 hours and caching them for lightning-fast access. Ask any question, and NewsAI instantly searches through its vast, up-to-date knowledge base using powerful semantic search in Pinecone’s vector database. The most relevant insights are then delivered to your language model, providing rich, contextual responses in seconds—keeping you informed, always.
+**NewsAI** is your intelligent news assistant that scrapes the latest stories from Times of India, summarizes them using advanced AI models, and enables contextual Q&A through a Retrieval-Augmented Generation (RAG) system. The application uses semantic search in a ChromaDB vector database to find relevant information and provides rich, contextual responses via a OpenAI OSS-120B large language model.
 
 ## Features
 - **Web Scraping**: News articles scraped using BeautifulSoup from Times of India.
-- **Embeddings**: Hugging Face embedder from LangChain creates vector embeddings.
-- **Storage**: Pinecone database stores document embeddings for retrieval.
-- **Caching**: Redis is used to cache results and speed up retrieval.
-- **Rate Limiting**: SQLite3 manages user request data, ensuring users don’t exceed the set request limit.
+- **Summarization**: AI-powered summarization using BART model to create concise news summaries.
+- **Embeddings**: SentenceTransformer creates vector embeddings for semantic search.
+- **Storage**: ChromaDB stores document embeddings for efficient retrieval.
+- **RAG Q&A**: Contextual question-answering system that leverages article content.
 - **API Endpoints**: 
-  - `/health`: Verifies API activity.
-  - `/search`: Accepts queries for retrieving documents based on similarity.
+  - `/`: Root endpoint to verify API activity.
+  - `/feed`: Retrieves the processed news feed with summaries.
+  - `/query`: Accepts queries for retrieving answers based on article content.
 
 ## Technologies Used
 
 | Technology  | Logo                                                                 |
 |-------------|----------------------------------------------------------------------|
 | Python      | ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white) |
+| FastAPI     | ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white) |
 | BeautifulSoup | ![BeautifulSoup](https://img.shields.io/badge/BeautifulSoup-333333?style=for-the-badge&logo=python&logoColor=white) |
-| LangChain   | ![LangChain](https://img.shields.io/badge/LangChain-FFD43B?style=for-the-badge&logo=langchain&logoColor=blue) |
-| Pinecone    | ![Pinecone](https://img.shields.io/badge/Pinecone-039BE5?style=for-the-badge&logo=pinecone&logoColor=white) |
-| Redis       | ![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white) |
-| Flask       | ![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white) |
-| SQLite3     | ![SQLite3](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white) |
+| ChromaDB    | ![ChromaDB](https://img.shields.io/badge/ChromaDB-4555D6?style=for-the-badge&logo=chroma&logoColor=white) |
+| Sentence Transformers | ![Sentence Transformers](https://img.shields.io/badge/Sentence--Transformers-FF6B6B?style=for-the-badge&logo=pytorch&logoColor=white) |
+| Transformers | ![Transformers](https://img.shields.io/badge/Transformers-FFD700?style=for-the-badge&logo=huggingface&logoColor=white) |
+| GROQ        | ![GROQ](https://img.shields.io/badge/GROQ-800080?style=for-the-badge&logo=google-cloud&logoColor=white) |
+| LangChain   | ![LangChain](https://img.shields.io/badge/LangChain-FFD700?style=for-the-badge&logo=langchain&logoColor=blue) |
 
+## Architecture
+The application follows a modular architecture:
+- **API Layer**: FastAPI endpoints for serving the news feed and handling Q&A requests
+- **Core**: Configuration and shared utilities
+- **Pipeline**: Data processing modules for scraping, summarizing, and embedding
 
 ## Installation Steps
 
 ### Step 1: Clone the Repository
-
 ```bash
 git clone https://github.com/your-repo/newsai.git
 cd newsai
@@ -37,54 +43,82 @@ cd newsai
 
 ### Step 2: Create a Virtual Environment
 ```bash
-virtualenv venv .\venv\Scripts\activate   # Windows # or source venv/bin/activate  # macOS/Linux
+python -m venv venv
+.\venv\Scripts\activate   # Windows
+# or 
+source venv/bin/activate  # macOS/Linux
 ```
+
 ### Step 3: Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 4: Install Redis
+### Step 4: Set up Environment Variables
+Create a `.env` file in the project root with your GROQ API key:
+```
+GROQ_API_KEY=your_groq_api_key_here
+```
 
-1. Download Redis from [Microsoft's GitHub Archive](https://github.com/MicrosoftArchive/redis/releases).
-    
-2. Navigate to the installation folder and start the Redis server:
+### Step 5: Run the Pipeline
+First, process the data by running the pipeline:
 ```bash
-    redis-server.exe redis.windows.conf
+python run_pipeline.py
 ```
-3. To check if the Redis server is running, use the following command:
+
+This will:
+- Scrape news articles from Times of India
+- Summarize the articles using BART model
+- Create embeddings and store them in ChromaDB
+
+### Step 6: Run the Server
 ```bash
-    redis-cli ping
+uvicorn news_ai.api.main:app --reload
 ```
-You should see `PONG` in the output.
-    
-4. When you're done with Redis, shut it down using:
-```bash
-    redis-cli shutdown
- ```
-    
 
-### Step 5: Run the Server
+## Usage
 
-```bash
-python main.py
+### API Endpoints
+
+1. **Get News Feed** - GET `/feed`
+   ```bash
+   curl http://127.0.0.1:8000/feed
+   ```
+
+2. **Query Articles** - POST `/query`
+   ```bash
+   curl -X POST http://127.0.0.1:8000/query \
+   -H "Content-Type: application/json" \
+   -d '{
+     "article_id": "toi_123456",
+     "query_text": "What is this article about?"
+   }'
+   ```
+
+### Example Query Format
+The `/query` endpoint expects a JSON body with:
+- `article_id`: The ID of the specific article to query
+- `query_text`: The question you want to ask about the article
+
+## Project Structure
 ```
-### Step 6: Ping the Server
-
-To check if the server is running, visit:
+NewsAI/
+├── run_pipeline.py          # Orchestrates the data pipeline
+├── .env                    # Environment variables
+├── chroma_db/              # ChromaDB vector store
+├── data/                   # Raw and processed article data
+│   ├── raw/                # Raw scraped articles
+│   └── processed/          # Summarized articles for feed
+└── news_ai/                # Main application package
+    ├── api/                # FastAPI endpoints
+    │   ├── main.py         # Main API router
+    │   ├── retrieval.py    # RAG retrieval logic
+    │   └── generation.py   # LLM generation logic
+    ├── core/               # Core utilities
+    │   └── config.py       # Configuration settings
+    └── pipeline/           # Data processing modules
+        ├── scraper.py      # Web scraping functionality
+        ├── summarizer.py   # Article summarization
+        └── embedder.py     # Embedding and vector storage
 ```
-http://127.0.0.1:5000/health
-```
-### Step 7: Search News Articles
-
-To use the news article context-based LLM, send a search request with the following parameters:
-
-- `text`: The query text
-- `top_k`: The number of results to fetch
-- `threshold`: The minimum similarity score
-Example URL:
-
-```perl
-	http://127.0.0.1:5000/search?user_id=user252&text=tell%20me%20about%20all%20the%20news%20you%20have%20from%20america&top_k=5&threshold=0.1
-```
-	
